@@ -1,0 +1,112 @@
+version: '3.4'
+
+services:
+  frontend:
+    build: 
+      context: ./frontend/
+      dockerfile: Dockerfile.prod
+    container_name: docker-learning-frontend
+    command: serve -s build -l 3000
+    env_file: ./frontend/.env
+    restart: unless-stopped
+    networks:
+      - docker-learning-network
+
+  api:
+    build: ./api
+    container_name: docker-learning-api
+    command: npm run start
+    restart: unless-stopped
+    environment:
+      - PORT=3001
+      - MONGO_URL=mongodb://api_db:27017/api
+      - AUTH_API_URL=http://auth:3002/api
+    depends_on:
+      - api_db
+    networks:
+      - docker-learning-network
+
+  socket:
+    build: ./socket
+    container_name: docker-learning-socket
+    command: npm run start
+    restart: unless-stopped
+    networks:
+      - docker-learning-network
+  
+  auth:
+    build: ./auth
+    container_name: docker-learning-auth
+    command: npm run start
+    restart: unless-stopped
+    environment:
+      - PORT=3002
+      - MONGO_URL=mongodb://auth_db:27017/auth
+      - API_URL=http://api:3001/api
+    depends_on:
+      - auth_db
+    networks:
+    - docker-learning-network
+
+  mailer:
+    build: 
+      context: ./mailer
+      dockerfile: Dockerfile
+    command: npm run start
+    restart: unless-stopped
+    environment:
+      - PORT=3003
+      - MONGO_URL=mongodb://mailer:27017/mailer
+      - API_URL=http://api:3001/api
+      - AUTH_API_URL=http://auth:3002/api
+    depends_on:
+      - mailer_db
+    networks:
+      - docker-learning-network
+
+  api_db:
+    image: mongo:latest
+    container_name: docker-learning-api-db
+    volumes:
+    - mongodb_api:/data/db
+    networks:
+      - docker-learning-network
+
+  auth_db:
+    image: mongo:latest
+    container_name: docker-learning-auth-db
+    volumes:
+    - mongodb_auth:/data/db
+    networks:
+      - docker-learning-network
+      
+  mailer_db:
+    image: mongo:latest
+    container_name: docker-learning-mailer-db
+    volumes:
+    - mongodb_mailer:/data/db
+    networks:
+      - docker-learning-network
+
+  nginx:
+    image: nginx:stable-alpine
+    container_name: docker-learning-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf.prod:/etc/nginx/conf.d/nginx.conf
+    depends_on:
+      - frontend
+      - api
+      - auth
+    networks:
+      - docker-learning-network
+
+volumes:
+  mongodb_api:
+  mongodb_auth:
+  mongodb_mailer:
+
+networks:
+  docker-learning-network:
+    driver: bridge
