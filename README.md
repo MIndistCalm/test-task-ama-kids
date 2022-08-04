@@ -1,2 +1,1 @@
-# Docker-learning
-Docker learning 
+# Test task AMA-KIDS
